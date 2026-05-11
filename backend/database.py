@@ -9,7 +9,7 @@ db = client[settings.mongodb_db]
 
 users_col = db["users"]
 documents_col = db["documents"]
-chunks_col = db["chunks"]
+chunks_col = db["chunk"]
 chat_history_col = db["chat_history"]
 audit_logs_col = db["audit_logs"]
 cached_answers_col = db["cached_answers"]
