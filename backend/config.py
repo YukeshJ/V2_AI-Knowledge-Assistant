@@ -4,7 +4,7 @@ from pydantic import ConfigDict
 
 
 class Settings(BaseSettings):
-    mongodb_uri: str = "mongodb://localhost:27018"
+    mongodb_uri: str = "mongodb://localhost:27017"
     mongodb_db: str = "knowledge_assistant"
     jwt_secret_key: str = "change-me"
     jwt_algorithm: str = "HS256"
