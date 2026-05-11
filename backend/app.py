@@ -599,20 +599,20 @@ def health():
     return JSONResponse({"status": "ok"})
 
 
-@app.get("/ready")
-def ready():
-    if settings.testing_mode:
-        return JSONResponse(
-            {"status": "not_ready", "mongodb": False, "rag_engine": rag_engine is not None},
-            status_code=503,
-        )
-    db_ok = True
-    try:
-        users_col.database.client.admin.command("ping")
-    except Exception:
-        db_ok = False
-    ready_state = db_ok and rag_engine is not None
-    return JSONResponse(
-        {"status": "ready" if ready_state else "not_ready", "mongodb": db_ok, "rag_engine": rag_engine is not None},
-        status_code=200 if ready_state else 503,
-    )
+# @app.get("/ready")
+# def ready():
+#     if settings.testing_mode:
+#         return JSONResponse(
+#             {"status": "not_ready", "mongodb": False, "rag_engine": rag_engine is not None},
+#             status_code=503,
+#         )
+#     db_ok = True
+#     try:
+#         users_col.database.client.admin.command("ping")
+#     except Exception:
+#         db_ok = False
+#     ready_state = db_ok and rag_engine is not None
+#     return JSONResponse(
+#         {"status": "ready" if ready_state else "not_ready", "mongodb": db_ok, "rag_engine": rag_engine is not None},
+#         status_code=200 if ready_state else 503,
+#     )
