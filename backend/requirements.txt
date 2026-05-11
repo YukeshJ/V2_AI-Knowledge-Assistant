@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+pymongo
+python-dotenv
+python-jose[cryptography]
+passlib[bcrypt]
+pydantic
+pydantic-settings
+pypdf
+sentence-transformers
+faiss-cpu
+rank-bm25
+requests
+numpy
+python-multipart
+pytest

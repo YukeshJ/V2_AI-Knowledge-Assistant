@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+backend/.env
+
+# Node
+node_modules/
+frontend/dist/
+
+# Runtime data
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/vector_store/*
+!backend/vector_store/.gitkeep
+
+# IDE / OS
+.DS_Store
+Thumbs.db
