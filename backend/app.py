@@ -50,19 +50,12 @@ from rate_limiter import InMemoryRateLimiter
 app = FastAPI(title="Enterprise AI Knowledge Assistant")
 setup_logging()
 logger = get_logger("app")
-allowed_origins = [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins or ["http://localhost:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-app.middleware("http")(request_logging_middleware)
+# Rate limiter moved below CORS for correct preflight handling
 rate_limiter = InMemoryRateLimiter(
     window_seconds=settings.rate_limit_window_seconds,
     max_requests=settings.rate_limit_max_requests,
 )
+
 
 rag_engine = None
 
@@ -135,6 +128,9 @@ async def handle_unexpected_error(request, exc):
 
 @app.middleware("http")
 async def apply_rate_limit(request: Request, call_next):
+    if request.method == "OPTIONS":
+        return await call_next(request)
+        
     limited_paths = {"/login", "/ask", "/upload"}
     if request.url.path in limited_paths:
         client_ip = request.client.host if request.client else "unknown"
@@ -155,6 +151,20 @@ async def apply_rate_limit(request: Request, call_next):
                 content={"detail": "Too many requests, please retry shortly."},
             )
     return await call_next(request)
+
+# Outermost middlewares (added last)
+app.middleware("http")(request_logging_middleware)
+
+allowed_origins = [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins or ["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 
 
 @app.post("/login", response_model=TokenResponse)
@@ -180,13 +190,15 @@ def update_active_status(user=Depends(get_current_user)):
 
 
 @app.get("/users")
-def list_users(user=Depends(require_roles(["admin"]))):
+def list_users(user=Depends(require_roles(["admin", "Project Manager"]))):
+
     docs = users_col.find({}, {"password_hash": 0}).sort("created_at", -1)
     return [serialize_user(doc) for doc in docs]
 
 
 @app.get("/audit-logs", response_model=list[AuditLogOut])
-def list_audit_logs(limit: int = Query(100, ge=1, le=500), user=Depends(require_roles(["admin"]))):
+def list_audit_logs(limit: int = Query(100, ge=1, le=500), user=Depends(require_roles(["admin", "Project Manager"]))):
+
     docs = audit_logs_col.find({}).sort("created_at", -1).limit(limit)
     return [serialize_audit_log(doc) for doc in docs]
 
@@ -238,7 +250,8 @@ def delete_chat_history_item(history_id: str, user=Depends(require_roles(["admin
 
 
 @app.post("/users")
-def create_user(payload: UserCreate, user=Depends(require_roles(["admin"]))):
+def create_user(payload: UserCreate, user=Depends(require_roles(["admin", "Project Manager"]))):
+
     if users_col.find_one({"username": payload.username}):
         raise HTTPException(status_code=409, detail="Username already exists")
     created = users_col.insert_one(
@@ -261,7 +274,8 @@ def create_user(payload: UserCreate, user=Depends(require_roles(["admin"]))):
 
 
 @app.put("/users/{user_id}")
-def update_user(user_id: str, payload: UserUpdate, user=Depends(require_roles(["admin"]))):
+def update_user(user_id: str, payload: UserUpdate, user=Depends(require_roles(["admin", "Project Manager"]))):
+
     updates = {}
     if payload.password:
         updates["password_hash"] = hash_password(payload.password)
@@ -281,7 +295,8 @@ def update_user(user_id: str, payload: UserUpdate, user=Depends(require_roles(["
 
 
 @app.delete("/users/{user_id}")
-def delete_user(user_id: str, user=Depends(require_roles(["admin"]))):
+def delete_user(user_id: str, user=Depends(require_roles(["admin", "Project Manager"]))):
+
     users_col.delete_one({"_id": object_id(user_id)})
     record_audit(actor=user, action="user_deleted", target_type="user", target_id=user_id)
     return {"message": "User deleted"}
@@ -291,7 +306,8 @@ def delete_user(user_id: str, user=Depends(require_roles(["admin"]))):
 async def upload_document(
     file: UploadFile = File(...),
     allowed_roles: str = Form(...),
-    user=Depends(require_roles(["admin"])),
+    user=Depends(require_roles(["admin", "Project Manager"])),
+
 ):
     if rag_engine is None:
         raise HTTPException(status_code=503, detail="RAG engine not initialized")
@@ -332,10 +348,11 @@ async def upload_document(
 
 @app.get("/documents")
 def list_documents(user=Depends(get_current_user)):
-    if user["role"] == "admin":
+    if user["role"] in ["admin", "Project Manager"]:
         query = {}
     else:
         query = {"allowed_roles": user["role"]}
+
     docs = documents_col.find(query).sort("uploaded_at", -1)
     return [serialize_document(doc) for doc in docs]
 
@@ -345,8 +362,9 @@ def get_document_content(document_id: str, user=Depends(get_current_user)):
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
         
-    if user["role"] != "admin" and user["role"] not in doc.get("allowed_roles", []):
+    if user["role"] not in ["admin", "Project Manager"] and user["role"] not in doc.get("allowed_roles", []):
         raise HTTPException(status_code=403, detail="Access denied")
+
         
     from config import UPLOAD_DIR
     file_path = UPLOAD_DIR / doc["filename"]
@@ -367,7 +385,8 @@ def get_document_content(document_id: str, user=Depends(get_current_user)):
     )
 
 @app.put("/documents/{document_id}")
-def update_document_roles(document_id: str, payload: DocumentUpdate, user=Depends(require_roles(["admin"]))):
+def update_document_roles(document_id: str, payload: DocumentUpdate, user=Depends(require_roles(["admin", "Project Manager"]))):
+
     result = documents_col.update_one(
         {"_id": object_id(document_id)}, 
         {"$set": {"allowed_roles": payload.allowed_roles}}
@@ -386,7 +405,8 @@ def update_document_roles(document_id: str, payload: DocumentUpdate, user=Depend
 
 
 @app.delete("/documents/{document_id}")
-def delete_document(document_id: str, user=Depends(require_roles(["admin"]))):
+def delete_document(document_id: str, user=Depends(require_roles(["admin", "Project Manager"]))):
+
     doc = documents_col.find_one({"_id": object_id(document_id)})
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -411,7 +431,8 @@ def delete_document(document_id: str, user=Depends(require_roles(["admin"]))):
 
 
 @app.post("/rebuild-index")
-def rebuild_index(user=Depends(require_roles(["admin"]))):
+def rebuild_index(user=Depends(require_roles(["admin", "Project Manager"]))):
+
     if rag_engine is None:
         raise HTTPException(status_code=503, detail="RAG engine not initialized")
     rag_engine.rebuild_index()
@@ -471,7 +492,8 @@ def ask_question(payload: AskRequest, user=Depends(get_current_user)):
             )
             result["cached"] = False
         except Exception as exc:
-            raise HTTPException(status_code=500, detail="Failed to generate answer") from exc
+            raise HTTPException(status_code=500, detail=f"Failed to generate answer: {str(exc)}") from exc
+
         
         # Store in cache
         cached_answers_col.insert_one({
@@ -502,7 +524,8 @@ def ask_question(payload: AskRequest, user=Depends(get_current_user)):
 
 
 @app.get("/analytics")
-def analytics(days: int = Query(7, ge=1, le=365), user=Depends(require_roles(["admin"]))):
+def analytics(days: int = Query(7, ge=1, le=365), user=Depends(require_roles(["admin", "Project Manager"]))):
+
     start_time = datetime.now(timezone.utc) - timedelta(days=days)
     base_filter = {"created_at": {"$gte": start_time}}
     total_queries = chat_history_col.count_documents(base_filter)
@@ -531,22 +554,29 @@ def analytics(days: int = Query(7, ge=1, le=365), user=Depends(require_roles(["a
     )
     top_queries = [{"role": row["_id"], "count": row["count"]} for row in top_queries_cursor]
     trend = [{"date": row["_id"], "count": row["count"]} for row in trend_cursor]
+    active_time = datetime.now(timezone.utc) - timedelta(minutes=1)
+    active_users = users_col.count_documents({"last_seen": {"$gte": active_time}})
+
     return {
         "window_days": days,
         "total_queries": total_queries,
         "top_queries": top_queries,
         "trend": trend,
+        "active_users": active_users,
     }
 
+
 @app.get("/analytics/active-users")
-def get_active_users(user=Depends(require_roles(["admin"]))):
+def get_active_users(user=Depends(require_roles(["admin", "Project Manager"]))):
+
     active_time = datetime.now(timezone.utc) - timedelta(minutes=1)
     active_users = users_col.count_documents({"last_seen": {"$gte": active_time}})
     return {"active_users": active_users}
 
 
 @app.get("/analytics/export")
-def export_analytics(days: int = Query(7, ge=1, le=365), user=Depends(require_roles(["admin"]))):
+def export_analytics(days: int = Query(7, ge=1, le=365), user=Depends(require_roles(["admin", "Project Manager"]))):
+
     start_time = datetime.now(timezone.utc) - timedelta(days=days)
     base_filter = {"created_at": {"$gte": start_time}}
     top_queries_cursor = chat_history_col.aggregate(

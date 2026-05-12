@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 import { documentApi, ragApi, chatHistoryApi } from "../services/api";
@@ -10,6 +12,8 @@ export default function RoleChatShell({
   welcomeText,
 }) {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
   const messagesEndRef = useRef(null);
   const abortControllerRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -316,15 +320,19 @@ export default function RoleChatShell({
         return;
       }
 
+      const errorDetail = err.response?.data?.detail || "Failed to fetch answer from backend.";
+
+
       setMessages((prev) => [
         ...prev,
         {
           id: crypto.randomUUID(),
           type: "assistant",
-          text: "Failed to fetch answer from backend.",
+          text: errorDetail,
           sources: [],
           cached: false,
         },
+
       ]);
       toast.error("Failed to fetch answer");
     } finally {
@@ -364,7 +372,28 @@ export default function RoleChatShell({
           </div>
         </div>
 
+        {sidebarOpen && user?.role === "Project Manager" && (
+          <div className="main-nav-pm" style={{ padding: "0 15px 15px", borderBottom: "1px solid var(--border)", marginBottom: "15px" }}>
+            <button 
+              className={`side-link active`} 
+              onClick={() => navigate("/pm/chat")}
+              style={{ width: "100%", textAlign: "left", padding: "10px 15px", borderRadius: "8px", background: "rgba(96, 165, 250, 0.1)", color: "var(--cyan)", border: "none", cursor: "pointer", fontWeight: 600, marginBottom: "8px", display: "flex", alignItems: "center", gap: "10px" }}
+            >
+              💬 AI Chat
+            </button>
+            <button 
+              className={`side-link`} 
+              onClick={() => navigate("/pm/manage")}
+              style={{ width: "100%", textAlign: "left", padding: "10px 15px", borderRadius: "8px", background: "transparent", color: "var(--text-secondary)", border: "none", cursor: "pointer", fontWeight: 500, display: "flex", alignItems: "center", gap: "10px" }}
+            >
+              ⚙️ Manage
+            </button>
+          </div>
+        )}
+
+
         {sidebarOpen && (
+
           <>
             <div className="doc-search-wrap">
               <input

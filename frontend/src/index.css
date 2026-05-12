@@ -457,6 +457,14 @@ button:active {
   font-size: 30px;
 }
 
+.refresh-time {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+  opacity: 0.8;
+  letter-spacing: 0.02em;
+}
+
 .pro-grid {
   display: grid;
   grid-template-columns: 1.1fr 1fr;
@@ -1607,6 +1615,28 @@ button:active {
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
+.main-nav-pm .side-link {
+  transition: all 0.3s ease;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.main-nav-pm .side-link:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: white;
+}
+
+.main-nav-pm .side-link.active {
+  background: rgba(96, 165, 250, 0.15);
+  color: var(--cyan);
+  font-weight: 600;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
 
 /* RESPONSIVE */
 

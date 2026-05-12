@@ -2,7 +2,8 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { useEffect } from "react";
 import LoginPage from "./pages/LoginPage";
-import AdminPage from "./pages/AdminPage";
+import DashboardPage from "./pages/DashboardPage";
+import ProjectManagerDashboard from "./pages/ProjectManagerDashboard";
 import PMChatPage from "./pages/PMChatPage";
 import TLChatPage from "./pages/TLChatPage";
 import SDChatPage from "./pages/SDChatPage";
@@ -36,18 +37,28 @@ export default function App() {
       <Routes>
         <Route path="/" element={<LoginPage />} />
 
+        {/* Admin Dashboard */}
         <Route path="/admin" element={
           <ProtectedRoute allowedRoles={["admin"]}>
-            <AdminPage />
+            <DashboardPage />
           </ProtectedRoute>
         }/>
 
-        <Route path="/pm" element={
+        {/* Project Manager Routes */}
+        <Route path="/pm" element={<Navigate to="/pm/chat" replace />} />
+        <Route path="/pm/chat" element={
           <ProtectedRoute allowedRoles={["Project Manager"]}>
             <PMChatPage />
           </ProtectedRoute>
         }/>
+        <Route path="/pm/manage" element={
+          <ProtectedRoute allowedRoles={["Project Manager"]}>
+            <ProjectManagerDashboard />
+          </ProtectedRoute>
+        }/>
 
+
+        {/* Team Member Routes */}
         <Route path="/tl" element={
           <ProtectedRoute allowedRoles={["Team Leader"]}>
             <TLChatPage />
@@ -60,6 +71,7 @@ export default function App() {
           </ProtectedRoute>
         }/>
 
+        {/* Junior Developer Workspace */}
         <Route path="/jd" element={
           <ProtectedRoute allowedRoles={["Junior Developer"]}>
             <JDChatPage />

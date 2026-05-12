@@ -40,14 +40,26 @@ class InMemoryTTLCache:
 
 class RAGEngine:
     def __init__(self):
-        self.embedding_model = SentenceTransformer(settings.embedding_model)
-        self.reranker = CrossEncoder(settings.rerank_model)
+        self._embedding_model = None
+        self._reranker = None
         self.cache = InMemoryTTLCache(600)
         self.index_path = VECTOR_DIR / "faiss.index"
         self.map_path = VECTOR_DIR / "chunk_ids.json"
         self.index = None
         self.chunk_ids = []
         self._load_index()
+
+    @property
+    def embedding_model(self):
+        if self._embedding_model is None:
+            self._embedding_model = SentenceTransformer(settings.embedding_model)
+        return self._embedding_model
+
+    @property
+    def reranker(self):
+        if self._reranker is None:
+            self._reranker = CrossEncoder(settings.rerank_model)
+        return self._reranker
 
     def _load_index(self):
         if self.index_path.exists() and self.map_path.exists():
@@ -144,8 +156,9 @@ class RAGEngine:
 
     def _fetch_candidates(self, role: str, document_id: Optional[str]):
         doc_filter = {"allowed_roles": role}
-        if role == "admin":
+        if role in ["admin", "Project Manager"]:
             doc_filter = {}
+
 
         if document_id:
             doc_filter["_id"] = object_id(document_id)
@@ -279,16 +292,17 @@ FINAL ANSWER:
 
     def _ask_local(self, prompt: str) -> str:
         response = requests.post(
-            f"{settings.ollama_url}/api/generate",
+            f"{settings.ollama_url}/api/chat",
             json={
                 "model": settings.ollama_model,
-                "prompt": prompt,
+                "messages": [{"role": "user", "content": prompt}],
                 "stream": False,
             },
-            timeout=120,
+            timeout=300,
         )
         response.raise_for_status()
-        return response.json().get("response", "").strip()
+        return response.json().get("message", {}).get("content", "").strip()
+
 
     def _ask_online(self, prompt: str) -> str:
         provider = settings.online_provider.lower()

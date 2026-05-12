@@ -1,0 +1,16 @@
+import requests
+
+url = "http://127.0.0.1:11434/api/chat"
+
+payload = {
+    "model": "gemma4:e2b",
+    "messages": [
+        {"role": "user", "content": "hello"}
+    ],
+    "stream": False
+}
+
+response = requests.post(url, json=payload)
+
+print(response.status_code)
+print(response.text)

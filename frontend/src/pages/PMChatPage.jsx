@@ -5,8 +5,8 @@ export default function PMChatPage() {
     <RoleChatShell
       roleName="Project Manager"
       roleKey="PM"
-      welcomeTitle="Project Manager Workspace"
-      welcomeText="Hello Project Manager! Ask about project documents, plans, timelines, deliverables, and summaries from your accessible files."
+      welcomeTitle="Project Manager Intelligence Hub"
+      welcomeText="Welcome to the Project Manager's Intelligence Hub. Access project data, monitor team documents, and leverage AI insights to drive delivery excellence."
     />
   );
 }

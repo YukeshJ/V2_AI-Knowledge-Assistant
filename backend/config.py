@@ -22,8 +22,10 @@ class Settings(BaseSettings):
     chunk_size: int = 800
     chunk_overlap: int = 120
 
-    ollama_url: str = "http://localhost:11434"
-    ollama_model: str = "gemma3:1b"
+    ollama_url: str = "http://127.0.0.1:11434"
+
+    ollama_model: str = "gemma4:e2b"
+
 
     online_provider: str = "gemini"
     gemini_api_key: str = ""
